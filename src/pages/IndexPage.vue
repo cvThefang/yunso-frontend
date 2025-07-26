@@ -13,7 +13,7 @@
         <PostList :post-list="postList" />
       </a-tab-pane>
       <a-tab-pane key="picture" tab="图片">
-        <PictureList />
+        <PictureList :picture-list="pictureList" />
       </a-tab-pane>
       <a-tab-pane key="user" tab="用户">
         <UserList :user-list="userList" />
@@ -35,20 +35,10 @@ const router = useRouter();
 const route = useRoute();
 
 const userList = ref([]);
-/**
- * 获取文章列表
- */
-myAxios.post("user/list/page/vo", {}).then((res: any) => {
-  userList.value = res.records;
-});
 
 const postList = ref([]);
-/**
- * 获取文章列表
- */
-myAxios.post("post/list/page/vo", {}).then((res: any) => {
-  postList.value = res.records;
-});
+
+const pictureList = ref([]);
 
 const initSearchParams = {
   text: "",
@@ -56,7 +46,68 @@ const initSearchParams = {
   pageNum: 1,
 };
 
+/**
+ * 加载数据
+ * 这个方法是旧版，效率不高 线面优化了一个聚合搜索接口
+ * @param params
+ */
+const loadDataOld = (params: any) => {
+  /**
+   * 参数调整
+   * 获取文章列表
+   */
+  const postQuery = {
+    ...params,
+    searchText: params.text,
+  };
+  myAxios.post("post/list/page/vo", postQuery).then((res: any) => {
+    postList.value = res.records;
+  });
+
+  /**
+   * 参数调整
+   * 获取图片列表
+   */
+  const pictureQuery = {
+    ...params,
+    searchText: params.text,
+  };
+  myAxios.post("picture/list/page/vo", pictureQuery).then((res: any) => {
+    pictureList.value = res.records;
+  });
+
+  /**
+   * 参数调整
+   * 获取用户列表
+   */
+  const userQuery = {
+    ...params,
+    userName: params.text,
+  };
+  myAxios.post("user/list/page/vo", userQuery).then((res: any) => {
+    userList.value = res.records;
+  });
+};
+
+const loadData = (params: any) => {
+  /**
+   * 参数转换
+   */
+  const query = {
+    ...params,
+    searchText: params.text,
+  };
+  myAxios.post("search/all", query).then((res: any) => {
+    userList.value = res.userList;
+    postList.value = res.postList;
+    pictureList.value = res.pictureList;
+  });
+};
+
 const searchParams = ref(initSearchParams);
+
+//首次加载页面是执行一次
+loadData(initSearchParams);
 
 // 监听路由变化，更新 searchParams
 watchEffect(() => {
@@ -67,10 +118,11 @@ watchEffect(() => {
 });
 
 const onSearch = (value: string) => {
-  alert(value);
+  console.log(value);
   router.push({
     query: searchParams.value,
   });
+  loadData(searchParams.value);
 };
 
 const activeKey = route.params.category;
