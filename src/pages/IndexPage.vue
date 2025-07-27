@@ -1,7 +1,7 @@
 <template>
   <div class="index-page">
     <a-input-search
-      v-model:value="searchParams.text"
+      v-model:value="searchText"
       placeholder="input search text"
       enter-button="Search"
       size="large"
@@ -30,9 +30,11 @@ import UserList from "@/components/UserList.vue";
 import MyDivider from "@/components/MyDivider.vue";
 import { useRoute, useRouter } from "vue-router";
 import myAxios from "@/plugins/myAxios";
+import { message } from "ant-design-vue";
 
 const router = useRouter();
 const route = useRoute();
+const activeKey = route.params.category;
 
 const userList = ref([]);
 
@@ -42,9 +44,12 @@ const pictureList = ref([]);
 
 const initSearchParams = {
   text: "",
+  type: activeKey,
   pageSizes: 10,
   pageNum: 1,
 };
+
+const searchText = ref(route.query.text);
 
 /**
  * 加载数据
@@ -89,7 +94,11 @@ const loadDataOld = (params: any) => {
   });
 };
 
-const loadData = (params: any) => {
+/**
+ * 加载聚合数据
+ * @param params
+ */
+const loadAllData = (params: any) => {
   /**
    * 参数转换
    */
@@ -104,28 +113,61 @@ const loadData = (params: any) => {
   });
 };
 
+/**
+ * 加载单类数据
+ * @param params
+ */
+const loadData = (params: any) => {
+  const { type } = params;
+  if (!type) {
+    message.error("类别为空");
+    return;
+  }
+  const query = {
+    ...params,
+    searchText: params.text,
+  };
+  myAxios.post("search/all", query).then((res: any) => {
+    if (type === "post") {
+      postList.value = res.dataList;
+    } else if (type === "picture") {
+      pictureList.value = res.dataList;
+    } else if (type === "user") {
+      userList.value = res.dataList;
+    }
+  });
+};
+
 const searchParams = ref(initSearchParams);
 
-//首次加载页面是执行一次
-loadData(initSearchParams);
+//首次加载页面是执行一次 首次进入调用两次请求 优化
+// loadData(initSearchParams);
 
 // 监听路由变化，更新 searchParams
 watchEffect(() => {
   searchParams.value = {
     ...initSearchParams,
     text: route.query.text,
+    type: route.params.category,
   } as any;
+  loadData(searchParams.value);
 });
 
+//
+/**
+ * onSearch 是表单提交事件 点击搜索按钮时调用
+ * 触发路由跳转 上面的 watchEffect 监听路由变化 触发 loadData 方法 从而达到刷新数据的效果
+ * @param value
+ */
 const onSearch = (value: string) => {
   console.log(value);
   router.push({
-    query: searchParams.value,
+    query: {
+      ...searchParams.value,
+      text: value,
+    },
   });
-  loadData(searchParams.value);
 };
-
-const activeKey = route.params.category;
 
 const onTabChange = (key: string) => {
   router.push({
